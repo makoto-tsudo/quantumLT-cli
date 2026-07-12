@@ -30,15 +30,16 @@ pub fn search(serial: String) -> Result<Device<GlobalContext>, Error> {
     return Err(Error::NoDevice)
 }
 
-fn send_packet<T: UsbContext>(handle: &mut DeviceHandle<T>, pkt: &Packet) -> Result<(), Error> {
+fn send_packet<T: UsbContext>(handle: &mut DeviceHandle<T>, pkt: &Packet) -> Result<Packet, Error> {
     let wbuf = pkt.to_bytes();
     let mut rbuf: Vec<u8> = vec![0; wbuf.len()];
     let wsize = handle.write_bulk(EP, wbuf.as_slice(), TIMEOUT)?;
     println!("write packet: {} bytes", wsize);
     let rsize = handle.read_bulk(EP, rbuf.as_mut_slice(), TIMEOUT)?;
     println!("read packet: {} bytes", rsize);
+    let pkt = Packet::parse(&rbuf, rsize).unwrap();
     
-    Ok(())
+    Ok(pkt)
 }
 
 fn send_init_packets<T: UsbContext>(handle: &mut DeviceHandle<T>, seq: &mut u32) -> Result<(), Error> {

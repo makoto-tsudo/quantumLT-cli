@@ -1,3 +1,5 @@
+use crate::quantum_lt::{Mprm, Pari, QUSt};
+
 #[derive(Clone, Copy)]
 #[allow(dead_code)]
 pub enum CMD {
@@ -10,6 +12,14 @@ pub enum CMD {
 
 #[allow(dead_code)]
 impl CMD {
+    const ALL: [CMD; 5] = [
+        CMD::ApplGetP,
+        CMD::ApplSetP,
+        CMD::ApplRply,
+        CMD::SetP,
+        CMD::Rply,
+    ];
+
     #[inline]
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -31,6 +41,12 @@ impl CMD {
         
         return buf;
     }
+    
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let bytes: [u8; 8] = bytes.get(..8)?.try_into().ok()?;
+        
+        Self::ALL.into_iter().find(|cmd| cmd.as_bytes() == bytes)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -42,6 +58,12 @@ pub enum SUBCMD {
 
 #[allow(dead_code)]
 impl SUBCMD {
+    const ALL: [SUBCMD; 3] = [
+        SUBCMD::QUSt,
+        SUBCMD::Pari,
+        SUBCMD::Mprm,
+    ];
+
     #[inline]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -61,7 +83,15 @@ impl SUBCMD {
         
         return buf;
     }
+    
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let bytes: [u8; 4] = bytes.get(..4)?.try_into().ok()?;
+        
+        Self::ALL.into_iter().find(|cmd| cmd.as_bytes() == bytes)
+    }
 }
+
+const HEADER_SIZE: usize = 8;
 
 pub struct Packet {
     id: u16,
@@ -111,6 +141,40 @@ impl Packet {
         
         return buf
     }
+    
+    pub fn parse(data: &[u8], size: usize) -> Result<Self, String> {
+        let mut b = PacketBuilder::new();        
+        
+        if size < HEADER_SIZE {
+            return Err("Invalid format.".to_string())
+        }
+        { // Header
+            let len = u16::from_le_bytes(data[0 .. 2].try_into().unwrap());
+            b = b.id(u16::from_le_bytes(data[2..4].try_into().unwrap()));
+            b = b.seq(u32::from_le_bytes(data[4 .. 8].try_into().unwrap()));
+            if usize::from(len) == HEADER_SIZE {
+                return Ok(b.build().unwrap());
+            }
+        }
+        {
+            b = b.cmd(CMD::from_bytes(&data[8 .. 16]).unwrap());
+            b = b.bank(u32::from_le_bytes(data[16 .. 20].try_into().unwrap()));
+            b = b.subcmd(SUBCMD::from_bytes(&data[20 .. 24]).unwrap());
+            let len: u32 = u32::from_le_bytes(data[24 .. 28].try_into().unwrap());
+            let payload: Vec<u8> = match b.subcmd {
+                Some(SUBCMD::QUSt) =>
+                    QUSt::parse(&data[28..], len - 8).unwrap().to_bytes().to_vec(),
+                Some(SUBCMD::Pari) => 
+                    Pari::parse(&data[28..], len - 8).unwrap().to_bytes().to_vec(),
+                Some(SUBCMD::Mprm) =>
+                    Mprm::parse(&data[28..], len - 8).unwrap().to_bytes().to_vec(),
+                _ => vec![],
+            };
+            b = b.payload(payload);
+        }
+        
+        b.build()
+    }
 }
 
 const ID: u16 = 0x0101;
@@ -142,7 +206,7 @@ impl PacketBuilder {
             .cmd(CMD::ApplGetP)
             .bank(0)
             .subcmd(SUBCMD::QUSt)
-            .payload([0u8; 162].to_vec())
+            .payload(QUSt::placeholder())
     }
     
     pub fn pari(seq: u32, bank: u32, payload: Vec<u8>) -> Self {
@@ -209,7 +273,7 @@ impl PacketBuilder {
 
 #[test]
 fn test_packet() {
-    let payload = [5u8].to_vec();
+    let payload = [0u8; 12].to_vec();
     let pkt = PacketBuilder::new()
         .id(0x0101)
         .seq(2)
@@ -218,5 +282,6 @@ fn test_packet() {
         .subcmd(SUBCMD::Pari)
         .payload(payload)
         .build().unwrap();
-    pkt.to_bytes();
+    let bytes = pkt.to_bytes();
+    Packet::parse(&bytes, bytes.len()).unwrap();
 }
