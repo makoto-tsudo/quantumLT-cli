@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand};
-use rusb::Error;
-mod quantum_lt;
+use quantum_lt::{self, Error};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
