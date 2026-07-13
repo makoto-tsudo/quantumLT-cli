@@ -120,7 +120,7 @@ fn send_init_packets<T: UsbContext>(handle: &mut DeviceHandle<T>, seq: &mut u32)
             .build().unwrap();
         send_packet(handle, &pkt)?;
     }
-    for ch in 0..15u32 {
+    for ch in 0..16u32 {
         *seq += 1;
         let payload = Pari::new(ch, 0, 0).to_bytes();
         let pkt = PacketBuilder::pari(*seq, 1, payload.to_vec())
