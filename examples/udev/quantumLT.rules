@@ -1,1 +1,2 @@
-SUBSYSTEM=="usb", ATTR{idVendor}=="1ed8", ATTR{idProduct}=="0206", MODE="0660", GROUP="audio", TAG+="systemd", ENV{SYSTEMD_WANTS}+="quantumLT-init@$env{ID_SERIAL_SHORT}.service"
+SUBSYSTEM=="usb", ATTR{idVendor}=="1ed8", ATTR{idProduct}=="0206", TAG+="systemd", ENV{SYSTEMD_WANTS}+="quantumLT-init@$env{ID_SERIAL_SHORT}.service"
+SUBSYSTEM=="usb", ATTR{bInterfaceNumber}=="05", ATTR{idVendor}=="1ed8", ATTR{idProduct}=="0206", MODE="0660", GROUP="audio"
