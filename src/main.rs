@@ -23,9 +23,11 @@ fn main() -> Result<(), Error> {
     
     match args.subcommand {
         SubCommands::Init { serial } => {
-            let list = &mut quantum_lt::search(Some(&serial))?;
-            if let Some(info) = list.pop() {
-                quantum_lt::init(info.device())?;
+            let ctx = quantum_lt::search(Some(&serial))?
+                .into_iter()
+                .next();
+            if let Some(mut ctx) = ctx {
+                quantum_lt::init(&mut ctx)?;
                 println!("Success initialization.")
             } else {
                 eprintln!("No such device. {}", serial)
@@ -34,8 +36,7 @@ fn main() -> Result<(), Error> {
         SubCommands::List => {
             let list = quantum_lt::search(None)?;
             for info in &list {
-                let dev = info.device();
-                println!("{}:{}:{} {}", dev.bus_number(), dev.port_number(), dev.address(), info.serial());
+                println!("{}:{}:{} {}", info.bus(), info.port(), info.address(), info.serial());
             }
             if list.len() == 0 {
                 eprintln!("Not found.");
